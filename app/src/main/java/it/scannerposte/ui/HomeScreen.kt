@@ -9,7 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -73,7 +73,7 @@ fun HomeScreen(vm: AppViewModel, onApri: (Long) -> Unit) {
             }
         } else {
             LazyColumn(Modifier.fillMaxSize().padding(pad).padding(12.dp)) {
-                items(lista, key = { it.id }) { a ->
+                itemsIndexed(lista, key = { _, a -> a.id }) { posizione, a ->
                     // Swipe da destra a sinistra: non elimina subito, chiede conferma.
                     val stato = rememberSwipeToDismissBoxState(confirmValueChange = {
                         if (it == SwipeToDismissBoxValue.EndToStart) daEliminare = a.id
@@ -101,7 +101,7 @@ fun HomeScreen(vm: AppViewModel, onApri: (Long) -> Unit) {
                                 Modifier.fillMaxWidth().padding(18.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Text("Aggregato ${a.id}", fontWeight = FontWeight.Bold, color = Navy)
+                                Text("Aggregato ${posizione + 1}", fontWeight = FontWeight.Bold, color = Navy)
                                 Text("${a.conteggio}/$MAX_CODICI", color = Blue, fontWeight = FontWeight.Bold)
                             }
                         }
@@ -114,7 +114,7 @@ fun HomeScreen(vm: AppViewModel, onApri: (Long) -> Unit) {
     daEliminare?.let { id ->
         AlertDialog(
             onDismissRequest = { daEliminare = null },
-            title = { Text("Eliminare l'aggregato $id?") },
+            title = { Text("Eliminare l'aggregato ${lista.indexOfFirst { it.id == id } + 1}?") },
             text = { Text("Verranno eliminati anche tutti i suoi codici e i file scan.") },
             confirmButton = {
                 TextButton(onClick = { vm.eliminaAggregato(id); daEliminare = null }) {

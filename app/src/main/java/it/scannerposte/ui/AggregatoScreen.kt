@@ -50,6 +50,9 @@ fun AggregatoScreen(
 ) {
     val codici by vm.codici(id).collectAsStateWithLifecycle(initialValue = emptyList())
     val formato = SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.ITALY)
+    // Numero mostrato = posizione nella lista (sempre 1, 2, 3 senza buchi).
+    val tutti by vm.aggregati.collectAsStateWithLifecycle()
+    val numero = tutti.indexOfFirst { it.id == id } + 1
 
     Scaffold(
         topBar = {
@@ -95,7 +98,7 @@ fun AggregatoScreen(
             ) {
                 Text("${codici.size}/$MAX_CODICI", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Navy)
                 Text(
-                    "AGGREGATO $id",
+                    "AGGREGATO $numero",
                     color = Blue, fontWeight = FontWeight.Bold,
                     modifier = Modifier
                         .background(Color(0xFFE7ECFB), RoundedCornerShape(20.dp))

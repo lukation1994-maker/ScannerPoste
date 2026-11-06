@@ -56,6 +56,8 @@ private const val INTERVALLO_MS = 2000L
 @Composable
 fun ViewerScreen(vm: AppViewModel, id: Long, onBack: () -> Unit) {
     val codici by produceState<List<Codice>>(emptyList(), id) { value = vm.codiciOra(id) }
+    val tutti by vm.aggregati.collectAsStateWithLifecycle()
+    val numero = tutti.indexOfFirst { it.id == id } + 1
     var indice by remember { mutableIntStateOf(0) }
     var inRiproduzione by remember { mutableStateOf(false) }
 
@@ -70,7 +72,7 @@ fun ViewerScreen(vm: AppViewModel, id: Long, onBack: () -> Unit) {
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("Aggregato $id", fontWeight = FontWeight.Bold) },
+                title = { Text("Aggregato $numero", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = Color.White)
