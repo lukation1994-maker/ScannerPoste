@@ -83,7 +83,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         ultimoVisto = ora
 
         viewModelScope.launch(Dispatchers.IO) {
-            val esistente = dao.trova(aggregatoId, nuovo)
+            val esistente = dao.trovaOvunque(aggregatoId, nuovo)
             if (esistente != null) {
                 duplicato.value = esistente
                 return@launch

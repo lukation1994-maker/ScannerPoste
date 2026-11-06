@@ -60,6 +60,7 @@ fun ScannerScreen(
     val context = LocalContext.current
     val codici by vm.codici(id).collectAsStateWithLifecycle(initialValue = emptyList())
     val duplicato by vm.duplicato.collectAsStateWithLifecycle()
+    val tutti by vm.aggregati.collectAsStateWithLifecycle()
     val completato by vm.completato.collectAsStateWithLifecycle()
 
     var permesso by remember {
@@ -119,11 +120,23 @@ fun ScannerScreen(
     }
 
     duplicato?.let {
+        val stesso = it.aggregatoId == id
+        val numero = tutti.indexOfFirst { a -> a.id == it.aggregatoId } + 1
+        val dove = if (stesso) "in questo aggregato (Aggregato $numero)" else "nell'Aggregato $numero"
         AlertDialog(
             onDismissRequest = { vm.annullaDuplicato() },
             title = { Text("Codice già presente") },
-            text = { Text("Questo codice è già nell'aggregato:\n${it.valore}\n\nVuoi eliminarlo oppure annullare e tornare alla scansione?") },
-            confirmButton = { TextButton(onClick = { vm.eliminaDuplicato() }) { Text("Elimina", color = Red) } },
+            text = {
+                Text(
+                    "Questo codice è già presente $dove:\n${it.valore}\n\n" +
+                        "Non è stato aggiunto. Vuoi eliminarlo da lì oppure annullare e tornare alla scansione?"
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { vm.eliminaDuplicato() }) {
+                    Text(if (stesso) "Elimina" else "Elimina dall'Aggr. $numero", color = Red)
+                }
+            },
             dismissButton = { TextButton(onClick = { vm.annullaDuplicato() }) { Text("Annulla") } }
         )
     }

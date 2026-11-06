@@ -60,6 +60,10 @@ interface ScannerDao {
     @Query("SELECT * FROM codici WHERE aggregatoId = :id AND valore = :valore LIMIT 1")
     suspend fun trova(id: Long, valore: String): Codice?
 
+    /** Cerca il codice in TUTTI gli aggregati, dando la precedenza a quello corrente. */
+    @Query("SELECT * FROM codici WHERE valore = :valore ORDER BY (aggregatoId = :id) DESC, id LIMIT 1")
+    suspend fun trovaOvunque(id: Long, valore: String): Codice?
+
     @Query("SELECT COUNT(*) FROM codici WHERE aggregatoId = :id")
     suspend fun conta(id: Long): Int
 
