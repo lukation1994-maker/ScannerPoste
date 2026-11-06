@@ -8,12 +8,25 @@ android {
     namespace = "it.scannerposte"
     compileSdk = 34
 
+    // Numero di build passato dal workflow (-PbuildNumber=...); in locale vale 1.
+    val buildNumber = (project.findProperty("buildNumber") as String?)?.toIntOrNull() ?: 1
+
     defaultConfig {
         applicationId = "it.scannerposte"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = buildNumber
+        versionName = "1.$buildNumber"
+    }
+
+    // Chiave di debug FISSA (non segreta): cosi' ogni APK si installa sopra al precedente senza disinstallare.
+    signingConfigs {
+        getByName("debug") {
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
     }
 
     buildTypes {

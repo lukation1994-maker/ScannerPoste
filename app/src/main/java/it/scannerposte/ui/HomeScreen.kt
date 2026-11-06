@@ -50,6 +50,11 @@ fun HomeScreen(vm: AppViewModel, onApri: (Long) -> Unit) {
     val lista by vm.aggregati.collectAsStateWithLifecycle()
     var daEliminare by remember { mutableStateOf<Long?>(null) }
     val scope = rememberCoroutineScope()
+    val contesto = androidx.compose.ui.platform.LocalContext.current
+    val versione = remember {
+        runCatching { contesto.packageManager.getPackageInfo(contesto.packageName, 0).versionName }
+            .getOrNull() ?: "?"
+    }
 
     Scaffold(
         topBar = {
@@ -67,6 +72,10 @@ fun HomeScreen(vm: AppViewModel, onApri: (Long) -> Unit) {
             ) { Icon(Icons.Default.Add, contentDescription = "Nuovo aggregato") }
         }
     ) { pad ->
+        // Versione installata, in basso al centro: serve a controllare di avere l'ultima build.
+        Box(Modifier.fillMaxSize().padding(pad), contentAlignment = Alignment.BottomCenter) {
+            Text("versione $versione", color = Color.LightGray, modifier = Modifier.padding(bottom = 8.dp))
+        }
         if (lista.isEmpty()) {
             Box(Modifier.fillMaxSize().padding(pad), contentAlignment = Alignment.Center) {
                 Text("Nessun aggregato\nTocca + per iniziare", color = Color.Gray)

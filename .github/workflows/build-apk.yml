@@ -24,7 +24,7 @@ jobs:
           gradle-version: 8.7
 
       - name: Compila APK (debug, installabile)
-        run: gradle assembleDebug --no-daemon
+        run: gradle assembleDebug --no-daemon -PbuildNumber=${{ github.run_number }}
 
       - name: Pubblica come release "latest"
         env:
