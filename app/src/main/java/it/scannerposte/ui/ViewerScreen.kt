@@ -24,6 +24,15 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.TextButton
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Remove
+import androidx.compose.ui.platform.LocalContext
+import android.content.Context
+import kotlin.math.roundToInt
+import java.util.Locale
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -50,7 +59,15 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import java.io.File
 
-private const val INTERVALLO_MS = 2000L
+// Intervallo tra un file e il successivo, espresso in centesimi di secondo.
+// Barra simmetrica: 0,50 s ... 3,50 s con la taratura di base (2,00 s) esattamente al centro.
+private const val MIN_CS = 50
+private const val BASE_CS = 200
+private const val MAX_CS = 350
+private const val PREFS = "impostazioni"
+private const val CHIAVE_INTERVALLO = "intervallo_cs"
+
+private fun secondi(cs: Int): String = String.format(Locale.ITALY, "%.2f s", cs / 100.0)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -61,10 +78,17 @@ fun ViewerScreen(vm: AppViewModel, id: Long, onBack: () -> Unit) {
     var indice by remember { mutableIntStateOf(0) }
     var inRiproduzione by remember { mutableStateOf(false) }
 
+    // Velocita' di scorrimento: si ricorda anche alla prossima apertura.
+    val contesto = LocalContext.current
+    val prefs = remember { contesto.getSharedPreferences(PREFS, Context.MODE_PRIVATE) }
+    var centesimi by remember { mutableIntStateOf(prefs.getInt(CHIAVE_INTERVALLO, BASE_CS).coerceIn(MIN_CS, MAX_CS)) }
+    val salvaVelocita = { prefs.edit().putInt(CHIAVE_INTERVALLO, centesimi).apply() }
+    val imposta = { v: Int -> centesimi = v.coerceIn(MIN_CS, MAX_CS); salvaVelocita() }
+
     // Riproduzione automatica: cambio file ogni 2 secondi, si ferma sull'ultimo.
-    LaunchedEffect(inRiproduzione, indice, codici.size) {
+    LaunchedEffect(inRiproduzione, indice, codici.size, centesimi) {
         if (inRiproduzione) {
-            delay(INTERVALLO_MS)
+            delay(centesimi * 10L)
             if (indice < codici.size - 1) indice++ else inRiproduzione = false
         }
     }
@@ -113,6 +137,47 @@ fun ViewerScreen(vm: AppViewModel, id: Long, onBack: () -> Unit) {
             }
             Text(corrente.valore, modifier = Modifier.padding(top = 12.dp), maxLines = 2)
             Text("${indice + 1} / ${codici.size}", color = Color.Gray)
+
+            // Regolazione velocita': barra con base 2,00 s al centro e passo di 0,01 s.
+            Column(Modifier.fillMaxWidth().padding(top = 8.dp)) {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(onClick = { imposta(centesimi - 1) }) {
+                        Icon(Icons.Default.Remove, "Diminuisci di 0,01 secondi")
+                    }
+                    Text(
+                        "Cambio file ogni ${secondi(centesimi)}",
+                        fontWeight = FontWeight.Bold, color = Navy
+                    )
+                    IconButton(onClick = { imposta(centesimi + 1) }) {
+                        Icon(Icons.Default.Add, "Aumenta di 0,01 secondi")
+                    }
+                }
+                Slider(
+                    value = centesimi.toFloat(),
+                    onValueChange = { centesimi = it.roundToInt() },
+                    onValueChangeFinished = { salvaVelocita() },
+                    valueRange = MIN_CS.toFloat()..MAX_CS.toFloat(),
+                    steps = MAX_CS - MIN_CS - 1,   // un passo per ogni centesimo di secondo
+                    colors = SliderDefaults.colors(
+                        thumbColor = Blue, activeTrackColor = Blue,
+                        activeTickColor = Color.Transparent, inactiveTickColor = Color.Transparent
+                    )
+                )
+                Row(Modifier.fillMaxWidth()) {
+                    Text(secondi(MIN_CS), Modifier.weight(1f), color = Color.Gray)
+                    TextButton(onClick = { imposta(BASE_CS) }) {
+                        Text("Base ${secondi(BASE_CS)}", color = if (centesimi == BASE_CS) Green else Red)
+                    }
+                    Text(
+                        secondi(MAX_CS), Modifier.weight(1f),
+                        color = Color.Gray, textAlign = androidx.compose.ui.text.style.TextAlign.End
+                    )
+                }
+            }
             Row(
                 Modifier.fillMaxWidth().padding(top = 12.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly,
