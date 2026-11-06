@@ -24,7 +24,8 @@ data class Lettura(val valore: String, val rettangolare: Boolean)
 
 class AppViewModel(app: Application) : AndroidViewModel(app) {
 
-    private val dao = Room.databaseBuilder(app, Db::class.java, "scanner.db").build().dao()
+    private val db = Room.databaseBuilder(app, Db::class.java, "scanner.db").build()
+    private val dao = db.dao()
     private val feedback = Feedback(app)
 
     override fun onCleared() {
@@ -44,6 +45,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun eliminaAggregato(id: Long) = viewModelScope.launch(Dispatchers.IO) {
         DataMatrixImage.cartella(getApplication(), id).deleteRecursively()
         dao.eliminaAggregato(id)
+        // Il numero progressivo si riallinea: il prossimo aggregato sara' (numero piu' alto presente) + 1,
+        // quindi se non ne resta nessuno si riparte da 1.
+        db.openHelper.writableDatabase.execSQL(
+            "UPDATE sqlite_sequence SET seq = (SELECT COALESCE(MAX(id), 0) FROM aggregati) WHERE name = 'aggregati'"
+        )
     }
 
     // ---------- Scansione ----------
