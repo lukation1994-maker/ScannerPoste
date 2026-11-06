@@ -19,9 +19,17 @@ import java.io.File
 
 const val MAX_CODICI = 600
 
+/** Un Data Matrix letto dalla fotocamera: valore + forma (rettangolare o quadrata) del simbolo originale. */
+data class Lettura(val valore: String, val rettangolare: Boolean)
+
 class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     private val dao = Room.databaseBuilder(app, Db::class.java, "scanner.db").build().dao()
+    private val feedback = Feedback(app)
+
+    override fun onCleared() {
+        feedback.rilascia()
+    }
 
     val aggregati = dao.aggregati()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -56,13 +64,15 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** Chiamata a ogni frame dall'analizzatore con i Data Matrix visibili. */
-    fun onCodiciLetti(aggregatoId: Long, valori: List<String>) {
+    fun onCodiciLetti(aggregatoId: Long, letture: List<Lettura>) {
         if (duplicato.value != null || completato.value) return
+        val valori = letture.map { it.valore }
         val ora = SystemClock.elapsedRealtime()
         // Lo stesso codice che resta inquadrato non va contato due volte.
         if (ultimo != null && ultimo in valori) ultimoVisto = ora
         if (ultimo != null && ora - ultimoVisto > 800) ultimo = null
-        val nuovo = valori.firstOrNull { it != ultimo } ?: return
+        val lettura = letture.firstOrNull { it.valore != ultimo } ?: return
+        val nuovo = lettura.valore
         ultimo = nuovo
         ultimoVisto = ora
 
@@ -76,7 +86,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 completato.value = true
                 return@launch
             }
-            val file = DataMatrixImage.salva(getApplication(), aggregatoId, nuovo)
+            val file = DataMatrixImage.salva(getApplication(), aggregatoId, nuovo, lettura.rettangolare)
             dao.inserisciCodice(
                 Codice(
                     aggregatoId = aggregatoId,
@@ -85,6 +95,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     file = file.absolutePath
                 )
             )
+            feedback.codiceAcquisito()
             if (dao.conta(aggregatoId) >= MAX_CODICI) completato.value = true
         }
     }

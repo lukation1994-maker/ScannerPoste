@@ -2,33 +2,65 @@ package it.scannerposte.data
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Paint
 import com.google.zxing.BarcodeFormat
+import com.google.zxing.EncodeHintType
+import com.google.zxing.common.BitMatrix
 import com.google.zxing.datamatrix.DataMatrixWriter
+import com.google.zxing.datamatrix.encoder.SymbolShapeHint
 import java.io.File
 
 /**
- * Crea il file "scan": invece di una foto, ridisegna lo stesso Data Matrix letto a partire dal suo valore.
- * Il risultato e' sempre dritto, simmetrico, nitido e con il bordo bianco (quiet zone) corretto.
+ * Crea il file "scan": ridisegna lo stesso Data Matrix letto a partire dal suo valore.
+ * Il risultato e' dritto, nitido, senza spazi inutili e con la stessa forma dell'originale
+ * (rettangolare se il codice sulla busta e' rettangolare).
  */
 object DataMatrixImage {
 
     fun cartella(context: Context, aggregatoId: Long): File =
         File(context.filesDir, "aggregati/$aggregatoId")
 
-    fun salva(context: Context, aggregatoId: Long, testo: String): File {
-        // Richiede 600x600: la libreria usa un multiplo intero della dimensione del modulo, quindi niente sfocature.
-        val matrice = DataMatrixWriter().encode(testo, BarcodeFormat.DATA_MATRIX, 600, 600)
-        val margine = maxOf(matrice.width, matrice.height) / 8
-        val w = matrice.width + 2 * margine
-        val h = matrice.height + 2 * margine
-        val pixel = IntArray(w * h) { Color.WHITE }
-        for (y in 0 until matrice.height) {
-            for (x in 0 until matrice.width) {
-                if (matrice.get(x, y)) pixel[(y + margine) * w + x + margine] = Color.BLACK
+    /** Matrice di moduli 1:1, senza bordo e senza padding. */
+    private fun codifica(testo: String, rettangolare: Boolean): BitMatrix {
+        val writer = DataMatrixWriter()
+        if (rettangolare) {
+            try {
+                val hint = mapOf<EncodeHintType, Any>(
+                    EncodeHintType.DATA_MATRIX_SHAPE to SymbolShapeHint.FORCE_RECTANGLE
+                )
+                // Con dimensione richiesta 1x1 la libreria restituisce esattamente i moduli, senza padding.
+                return writer.encode(testo, BarcodeFormat.DATA_MATRIX, 1, 1, hint)
+            } catch (e: Exception) {
+                // Contenuto troppo lungo per un rettangolo: si ripiega sul quadrato.
             }
         }
-        val bitmap = Bitmap.createBitmap(pixel, w, h, Bitmap.Config.ARGB_8888)
+        return writer.encode(testo, BarcodeFormat.DATA_MATRIX, 1, 1)
+    }
+
+    fun salva(context: Context, aggregatoId: Long, testo: String, rettangolare: Boolean): File {
+        val matrice = codifica(testo, rettangolare)
+        val lato = maxOf(matrice.width, matrice.height)
+        val modulo = (1200 / lato).coerceIn(6, 20)      // pixel per modulo, sempre intero = bordi nitidi
+        val margine = 3 * modulo                         // zona bianca (quiet zone)
+        val w = matrice.width * modulo + 2 * margine
+        val h = matrice.height * modulo + 2 * margine
+
+        val bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        canvas.drawColor(Color.WHITE)
+        val nero = Paint().apply { color = Color.BLACK; isAntiAlias = false }
+        for (y in 0 until matrice.height) {
+            for (x in 0 until matrice.width) {
+                if (matrice.get(x, y)) {
+                    val left = (margine + x * modulo).toFloat()
+                    val top = (margine + y * modulo).toFloat()
+                    canvas.drawRect(left, top, left + modulo, top + modulo, nero)
+                }
+            }
+        }
+
         val dir = cartella(context, aggregatoId).apply { mkdirs() }
         val file = File(dir, "scan_${System.currentTimeMillis()}.png")
         file.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }

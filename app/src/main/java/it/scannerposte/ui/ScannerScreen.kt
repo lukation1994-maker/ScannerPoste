@@ -46,6 +46,7 @@ import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
 import it.scannerposte.AppViewModel
+import it.scannerposte.Lettura
 import it.scannerposte.MAX_CODICI
 import java.util.concurrent.Executors
 
@@ -128,8 +129,22 @@ fun ScannerScreen(
     }
 }
 
+/** Dai 4 angoli del simbolo ricava il rapporto lati: oltre 1,6 e' un Data Matrix rettangolare. */
+private fun eRettangolare(b: Barcode): Boolean {
+    val p = b.cornerPoints
+    val (larghezza, altezza) = if (p != null && p.size >= 4) {
+        Math.hypot((p[1].x - p[0].x).toDouble(), (p[1].y - p[0].y).toDouble()) to
+            Math.hypot((p[2].x - p[1].x).toDouble(), (p[2].y - p[1].y).toDouble())
+    } else {
+        val r = b.boundingBox ?: return false
+        r.width().toDouble() to r.height().toDouble()
+    }
+    if (larghezza <= 0 || altezza <= 0) return false
+    return maxOf(larghezza, altezza) / minOf(larghezza, altezza) > 1.6
+}
+
 @Composable
-private fun CameraPreview(onCodici: (List<String>) -> Unit) {
+private fun CameraPreview(onCodici: (List<Lettura>) -> Unit) {
     val lifecycleOwner = LocalLifecycleOwner.current
     val callback by rememberUpdatedState(onCodici)
     val executor = remember { Executors.newSingleThreadExecutor() }
@@ -169,7 +184,11 @@ private fun CameraPreview(onCodici: (List<String>) -> Unit) {
                     }
                     val img = InputImage.fromMediaImage(media, proxy.imageInfo.rotationDegrees)
                     scanner.process(img)
-                        .addOnSuccessListener { list -> callback(list.mapNotNull { it.rawValue }) }
+                        .addOnSuccessListener { list ->
+                            callback(list.mapNotNull { b ->
+                                b.rawValue?.let { Lettura(it, eRettangolare(b)) }
+                            })
+                        }
                         .addOnCompleteListener { proxy.close() }
                 }
                 cameraProvider.unbindAll()
